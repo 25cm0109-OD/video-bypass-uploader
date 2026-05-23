@@ -1,0 +1,4 @@
+Options -Indexes
+
+RemoveHandler .php .phtml .phar
+RemoveType .php .phtml .phar
