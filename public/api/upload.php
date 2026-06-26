@@ -55,7 +55,12 @@ $allowedExtensions = [
     ],
     'webm' => ['video/webm'],
     'ogg' => ['video/ogg', 'application/ogg'],
-    'mov' => ['video/quicktime']
+    'mov' => [
+        'video/quicktime',
+        'video/mp4',
+        'application/mp4',
+        'application/octet-stream'
+    ]
 ];
 
 $originalName = $file['name'] ?? '';
@@ -91,7 +96,12 @@ $filename = $baseName . '.' . $extension;
 $destination = $uploadsDir . '/' . $filename;
 
 if ($extension === 'mov') {
-    $ffmpegPath = trim((string) shell_exec('command -v ffmpeg 2>/dev/null'));
+    $ffmpegBinary = DIRECTORY_SEPARATOR === '\\' ? 'where ffmpeg 2>NUL' : 'command -v ffmpeg 2>/dev/null';
+    $ffmpegCandidates = array_filter(
+        preg_split('/\R/', trim((string) shell_exec($ffmpegBinary))),
+        static fn($path) => trim($path) !== ''
+    );
+    $ffmpegPath = reset($ffmpegCandidates) ?: '';
     if ($ffmpegPath === '') {
         $respondError('サーバーに変換ツールがありません。', 500);
     }
@@ -106,7 +116,7 @@ if ($extension === 'mov') {
     $filter = 'scale=iw:ih,setsar=1';
     $command = sprintf(
         '%s -hide_banner -loglevel error -y -i %s -map 0:v:0 -map 0:a? -vf %s -metadata:s:v rotate=0 -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart %s',
-        escapeshellcmd($ffmpegPath),
+        escapeshellarg($ffmpegPath),
         escapeshellarg($sourcePath),
         escapeshellarg($filter),
         escapeshellarg($destination)

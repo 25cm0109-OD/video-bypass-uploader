@@ -18,7 +18,7 @@
             id="file"
             name="file"
             class="file-input"
-            accept="video/mp4,video/webm,video/ogg,video/quicktime"
+            accept=".mp4,.webm,.ogg,.mov,video/mp4,video/webm,video/ogg,video/quicktime"
             required
           />
           <p class="drop-zone-text">Drag &amp; Drop or Browse Files</p>
