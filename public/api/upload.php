@@ -39,9 +39,9 @@ if ($file['error'] !== UPLOAD_ERR_OK) {
     $respondError($errorMap[$file['error']] ?? 'アップロードに失敗しました。');
 }
 
-$maxBytes = 200 * 1024 * 1024;
+$maxBytes = 500 * 1024 * 1024;
 if ($file['size'] > $maxBytes) {
-    $respondError('ファイルサイズは200MB以下にしてください。');
+    $respondError('ファイルサイズは500MB以下にしてください。');
 }
 
 $allowedExtensions = [
@@ -57,6 +57,7 @@ $allowedExtensions = [
     'ogg' => ['video/ogg', 'application/ogg'],
     'mov' => [
         'video/quicktime',
+        'video/x-quicktime',
         'video/mp4',
         'application/mp4',
         'application/octet-stream'
@@ -77,7 +78,7 @@ $clientMime = $file['type'] ?? '';
 
 if (!in_array($detectedMime, $allowedMimes, true)) {
     $canFallback = $detectedMime === '' || $detectedMime === 'application/octet-stream';
-    if (!$canFallback && !in_array($clientMime, $allowedMimes, true)) {
+    if (!$canFallback || !in_array($clientMime, $allowedMimes, true)) {
         $respondError('ファイル形式が正しくありません。');
     }
 }
@@ -99,36 +100,48 @@ if ($extension === 'mov') {
     $ffmpegBinary = DIRECTORY_SEPARATOR === '\\' ? 'where ffmpeg 2>NUL' : 'command -v ffmpeg 2>/dev/null';
     $ffmpegCandidates = array_filter(
         preg_split('/\R/', trim((string) shell_exec($ffmpegBinary))),
-        static fn($path) => trim($path) !== ''
+        static function ($path): bool {
+            return trim($path) !== '';
+        }
     );
     $ffmpegPath = reset($ffmpegCandidates) ?: '';
     if ($ffmpegPath === '') {
-        $respondError('サーバーに変換ツールがありません。', 500);
-    }
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            $respondError('ファイルの保存に失敗しました。', 500);
+        }
+    } else {
+        $sourcePath = $uploadsDir . '/' . $baseName . '_source.' . $extension;
+        if (!move_uploaded_file($file['tmp_name'], $sourcePath)) {
+            $respondError('ファイルの保存に失敗しました。', 500);
+        }
 
-    $sourcePath = $uploadsDir . '/' . $baseName . '_source.' . $extension;
-    if (!move_uploaded_file($file['tmp_name'], $sourcePath)) {
-        $respondError('ファイルの保存に失敗しました。', 500);
-    }
+        $convertedFilename = $baseName . '.mp4';
+        $convertedDestination = $uploadsDir . '/' . $convertedFilename;
+        $filter = 'scale=iw:ih,setsar=1';
+        $command = sprintf(
+            '%s -hide_banner -loglevel error -y -i %s -map 0:v:0 -map 0:a? -vf %s -metadata:s:v rotate=0 -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart %s',
+            escapeshellarg($ffmpegPath),
+            escapeshellarg($sourcePath),
+            escapeshellarg($filter),
+            escapeshellarg($convertedDestination)
+        );
 
-    $filename = $baseName . '.mp4';
-    $destination = $uploadsDir . '/' . $filename;
-    $filter = 'scale=iw:ih,setsar=1';
-    $command = sprintf(
-        '%s -hide_banner -loglevel error -y -i %s -map 0:v:0 -map 0:a? -vf %s -metadata:s:v rotate=0 -c:v libx264 -preset veryfast -crf 23 -c:a aac -movflags +faststart %s',
-        escapeshellarg($ffmpegPath),
-        escapeshellarg($sourcePath),
-        escapeshellarg($filter),
-        escapeshellarg($destination)
-    );
-
-    $exitCode = 0;
-    exec($command, $outputLines, $exitCode);
-    if (is_file($sourcePath)) {
-        unlink($sourcePath);
-    }
-    if ($exitCode !== 0 || !is_file($destination)) {
-        $respondError('動画の変換に失敗しました。', 500);
+        $exitCode = 0;
+        exec($command, $outputLines, $exitCode);
+        if ($exitCode === 0 && is_file($convertedDestination) && filesize($convertedDestination) > 0) {
+            if (is_file($sourcePath)) {
+                unlink($sourcePath);
+            }
+            $filename = $convertedFilename;
+            $destination = $convertedDestination;
+        } else {
+            if (is_file($convertedDestination)) {
+                unlink($convertedDestination);
+            }
+            if (!rename($sourcePath, $destination)) {
+                $respondError('ファイルの保存に失敗しました。', 500);
+            }
+        }
     }
 } else {
     if (!move_uploaded_file($file['tmp_name'], $destination)) {

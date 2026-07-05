@@ -9,7 +9,7 @@
   <body>
     <main class="upload-card">
       <h1 class="title">Discord 動画アップローダー</h1>
-      <p class="meta">最大200MB / mp4, webm, ogg, mov</p>
+      <p class="meta">最大500MB / mp4, webm, ogg, mov</p>
 
       <form id="upload-form" class="upload-form">
         <div class="drop-zone" id="dropzone" role="button" tabindex="0">

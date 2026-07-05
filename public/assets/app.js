@@ -11,13 +11,44 @@ const result = document.getElementById("result");
 const resultUrl = document.getElementById("result-url");
 const copyButton = document.getElementById("copy-button");
 const defaultSelectedHtml = selectedFile.innerHTML;
+const maxFileBytes = 500 * 1024 * 1024;
+const allowedExtensions = new Set(["mp4", "webm", "ogg", "mov"]);
+
+const formatBytes = (bytes) => {
+  const units = ["B", "KB", "MB", "GB"];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+};
+
+const validateFile = (file) => {
+  if (!file) return "動画ファイルを選択してください。";
+
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  if (!allowedExtensions.has(extension)) {
+    return "mp4, webm, ogg, mov の動画ファイルを選択してください。";
+  }
+
+  if (file.size > maxFileBytes) {
+    return `ファイルサイズは500MB以下にしてください。選択中: ${formatBytes(file.size)}`;
+  }
+
+  return "";
+};
 
 const updateSelectedFile = () => {
   const file = fileInput.files?.[0];
   if (file) {
-    selectedFile.textContent = file.name;
+    selectedFile.textContent = `${file.name} (${formatBytes(file.size)})`;
+    const validationMessage = validateFile(file);
+    message.textContent = validationMessage;
   } else {
     selectedFile.innerHTML = defaultSelectedHtml;
+    message.textContent = "";
   }
 };
 
@@ -99,8 +130,9 @@ form.addEventListener("submit", (event) => {
   resetUi();
 
   const file = fileInput.files[0];
-  if (!file) {
-    message.textContent = "動画ファイルを選択してください。";
+  const validationMessage = validateFile(file);
+  if (validationMessage) {
+    message.textContent = validationMessage;
     return;
   }
 
@@ -129,6 +161,9 @@ form.addEventListener("submit", (event) => {
     if (xhr.status < 200 || xhr.status >= 300) {
       const errorMessage =
         (xhr.response && xhr.response.error) ||
+        (xhr.status === 413
+          ? "ファイルサイズがサーバー上限を超えています。500MB以下の動画を選択してください。"
+          : "") ||
         "アップロードに失敗しました。";
       message.textContent = errorMessage;
       return;

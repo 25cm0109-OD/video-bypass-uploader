@@ -14,7 +14,7 @@ $files = [];
 if (is_dir($uploadsDir)) {
     $entries = scandir($uploadsDir) ?: [];
     foreach ($entries as $entry) {
-        if ($entry === '.' || $entry === '..' || str_starts_with($entry, '.')) {
+        if ($entry === '.' || $entry === '..' || strpos($entry, '.') === 0) {
             continue;
         }
         $path = $uploadsDir . '/' . $entry;
@@ -32,7 +32,9 @@ if (is_dir($uploadsDir)) {
 
 usort(
     $files,
-    static fn (array $a, array $b): int => $b['mtime'] <=> $a['mtime']
+    static function (array $a, array $b): int {
+        return $b['mtime'] <=> $a['mtime'];
+    }
 );
 
 $status = $_GET['status'] ?? '';

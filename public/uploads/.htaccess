@@ -1,4 +1,8 @@
 Options -Indexes
 
-RemoveHandler .php .phtml .phar
-RemoveType .php .phtml .phar
+RemoveHandler .php .phtml .phar .cgi .pl
+RemoveType .php .phtml .phar .cgi .pl
+
+<FilesMatch "\.(php|phtml|phar|cgi|pl)$">
+  Require all denied
+</FilesMatch>

@@ -23,7 +23,7 @@ if ($uploadsReal === false) {
 
 $target = $uploadsDir . '/' . $basename;
 $targetReal = realpath($target);
-if ($targetReal === false || !str_starts_with($targetReal, $uploadsReal . DIRECTORY_SEPARATOR)) {
+if ($targetReal === false || strpos($targetReal, $uploadsReal . DIRECTORY_SEPARATOR) !== 0) {
     redirectWithError('削除対象が見つかりません。');
 }
 
